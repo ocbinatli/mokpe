@@ -67,7 +67,7 @@ mokpe_projection_train <- function(K_c, K_x, K_z, X, Z, parameters) {
     
     lambda_c * objective_c + lambda_x * objective_x + lambda_z * objective_z
   }
-  # define the gradient of L w.r.t. the projection matrix Q_x
+  
   gx <- function(x) {
     Q_x <- tx(x) 
     E_x <- X %*% Q_x 
@@ -82,31 +82,31 @@ mokpe_projection_train <- function(K_c, K_x, K_z, X, Z, parameters) {
       j <- !is.na(K_c[i,])
       for (s in 1:R) {
         if (sum(j) < 2) {
-          Q_x_gradient[, s] <- t(t(Q_x_gradient[, s])) - 4 * lambda_c * as.vector((KE_c[i, j] * (KE_c[i, j] - K_c[i, j]) ) * t(t(E_x[i, s] - t(E_z[j, s]))) ) * t(t(X[i, ])) / sigma_e^2 / count_c
+          Q_x_gradient[, s] <- c(Q_x_gradient[, s] - 4 * lambda_c * sum(as.vector(KE_c[i, j] * (KE_c[i, j] - K_c[i, j]) * (E_x[i, s] - E_z[j, s]))) %*% t(X[i, ]) / sigma_e^2 / count_c)
         } else {
-          Q_x_gradient[, s] <- t(t(Q_x_gradient[, s])) - 4 * lambda_c * rowSums(as.vector(KE_c[i, j] * (KE_c[i, j] - K_c[i, j]) ) * t(t(E_x[i, s] - t(E_z[j, s]))) ) * t(t(X[i, ])) / sigma_e^2 / count_c
+          Q_x_gradient[, s] <- Q_x_gradient[, s] - 4 * lambda_c * sum(as.vector(KE_c[i, j] * (KE_c[i, j] - K_c[i, j]) * (E_x[i, s] - E_z[j, s]))) %*% t(X[i, ]) / sigma_e^2 / count_c
         }
       }
     }
-    if (lambda_x != 0) {
-      for (i in 1:N_x) {
-        j <- !is.na(K_x[i,])
-        for (s in 1:R) {
-          if (sum(j) == 1) {
-            Q_x_gradient[, s] <- c(Q_x_gradient[, s] - 4 * lambda_x * (as.vector(KE_x[i, j] * (KE_x[i, j] - K_x[i, j]) * t(t(E_x[i, s] - t(E_x[j, s]))) ) * t(t(X[i, ] - t(X[j, ]))) )  / sigma_e^2 / count_x)
-          } else {
-            fp <- as.vector(KE_x[i, j] * (KE_x[i, j] - K_x[i, j]) * t(t(E_x[i, s] - t(E_x[j, s]))) )
-            sp <- t(t(X[i, ] - t(X[j, ])))
-            tot <- matrix(fp, nrow = nrow(sp), ncol = ncol(sp), byrow = TRUE)
-            Q_x_gradient[, s] <- Q_x_gradient[, s] - 4 * lambda_x * rowSums(tot * sp) / sigma_e^2 / count_x
-          }
+    
+    for (i in 1:N_x) {
+      j <- !is.na(K_x[i,])
+      for (s in 1:R) {
+        if (sum(j) == 1) {
+          Q_x_gradient[, s] <- c(Q_x_gradient[, s] - 4 * lambda_x * (as.vector(KE_x[i, j] * (KE_x[i, j] - K_x[i, j]) * as.matrix(E_x[i, s] - t(E_x[j, s])) ) * as.matrix(X[i, ] - t(X[j, ])) )  / sigma_e^2 / count_x)
+        } else {
+          fp <- as.vector(KE_x[i, j] * (KE_x[i, j] - K_x[i, j]) * as.matrix(E_x[i, s] - t(E_x[j, s])) )
+          sp <- as.matrix(X[i, ] - t(X[j, ]))
+          tot <- matrix(fp, nrow = nrow(sp), ncol = ncol(sp), byrow = TRUE)
+          Q_x_gradient[, s] <- Q_x_gradient[, s] - 4 * lambda_x * rowSums(tot * sp) / sigma_e^2 / count_x
         }
       }
     }
+    
     Q_x_gradient
   }
   
-  #---Projection matrix Q_z
+  #--------------------Z
   tz <- function(x) {
     Q_z = matrix(x[1:(dim(P_z)[1] * dim(P_z)[2])], dim(P_z)[1], dim(P_z)[2])
   }
@@ -124,7 +124,7 @@ mokpe_projection_train <- function(K_c, K_x, K_z, X, Z, parameters) {
     
     lambda_c * objective_c + lambda_x * objective_x + lambda_z * objective_z
   }
-  # define the gradient of L w.r.t. the projection matrix Q_z
+  
   gz <- function(x) {
     Q_z <- tz(x)
     E_z <- Z %*% Q_z 
@@ -147,25 +147,23 @@ mokpe_projection_train <- function(K_c, K_x, K_z, X, Z, parameters) {
       }
     }
     
-    if (lambda_z != 0){
-      for (i in 1:N_z){
-        j <- !is.na(K_z[i,])
-        for (s in 1:R) {
-          if (sum(j) == 1) {
-            Q_z_gradient[, s] <- c(Q_z_gradient[, s] - 4 * lambda_z * (as.vector(KE_z[i, j] * (KE_z[i, j] - K_z[i, j]) * t(t(E_z[i, s] - t(E_z[j, s]))) ) * t(t(Z[i, ] - t(Z[j, ]))) ) / sigma_e^2 / count_z)
-          } else {
-            fp <- as.vector(KE_z[i, j] * (KE_z[i, j] - K_z[i, j]) * t(t(E_z[i, s] - t(E_z[j, s]))) )
-            sp <- t(t(Z[i, ] - t(Z[j, ])))
-            tot <- matrix(fp, nrow = nrow(sp), ncol = ncol(sp), byrow = TRUE)
-            Q_z_gradient[, s] <- Q_z_gradient[, s] - 4 * lambda_z * rowSums(tot * sp) / sigma_e^2 / count_z
-          }
+    for (i in 1:N_z){
+      j <- !is.na(K_z[i,])
+      for (s in 1:R) {
+        if (sum(j) == 1) {
+          Q_z_gradient[, s] <- c(Q_z_gradient[, s] - 4 * lambda_z * (as.vector(KE_z[i, j] * (KE_z[i, j] - K_z[i, j]) * as.matrix(E_z[i, s] - t(E_z[j, s])) ) * as.matrix(Z[i, ] - t(Z[j, ])) ) / sigma_e^2 / count_z)
+        } else {
+          fp <- as.vector(KE_z[i, j] * (KE_z[i, j] - K_z[i, j]) * as.matrix(E_z[i, s] - t(E_z[j, s])) )
+          sp <- as.matrix(Z[i, ] - t(Z[j, ]))
+          tot <- matrix(fp, nrow = nrow(sp), ncol = ncol(sp), byrow = TRUE)
+          Q_z_gradient[, s] <- Q_z_gradient[, s] - 4 * lambda_z * rowSums(tot * sp) / sigma_e^2 / count_z
         }
       }
     }
     Q_z_gradient
   }
   
-  #---eta
+  #--------------------eta
   teta <- function(x) {
     sigma_e = x[1:1]
   }
