@@ -7,3 +7,5 @@ This repository contains R implementations of the algorithms proposed in "MOKPE:
 ---
 * demo_mokpe_embedding.R => how to use the embedding algorithm
 * mokpe_embedding_train.R => training procedure for embedding
+
+**contact:** ocbinatli AT gmail DOT com
